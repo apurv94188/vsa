@@ -20,6 +20,8 @@ def boroughValidation(data):
 	data=data.withColumn("Borough",when((col("Incident Zip")>10000) & (col("Incident Zip")<10280),"MANHATTAN").otherwise(col("Borough")))
 	data=data.withColumn("Borough",when((col("Incident Zip")>10300) & (col("Incident Zip")<10315),"STATEN ISLAND").otherwise(col("Borough")))
 	data=data.withColumn("Borough",when((col("Incident Zip")>11350) & (col("Incident Zip")<11700),"QUEENS").otherwise(col("Borough")))
+	data=data.withColumn("City", when((col("City").isNull()) | (col("City")=="N/A") | (col("City")=="NA"),"New_York").otherwise(col("City")))
+
 
 def nullValues(x,y):
 	y.append(data.select([count(when((col(x)=="NA")|(col(x)=="UNKNOWN") | (col(x)=="Unspecified") | (col(x)=="N/A") | (col(x)=="") | (col(x).isNull()) | (col(x)=="0 Unspecified"),x))]).take(1)[0][0])
@@ -27,6 +29,7 @@ def nullValues(x,y):
 # We create cData to store percentage of missing values in every column
 
 cData=[]
+cData2=[]
 for i in data.columns:
 	nullValues(i,cData)
 
@@ -43,24 +46,23 @@ headers=data.columns
 for i in range(0,len(cData)):
 	if(cData[i]>50):
 		data=data.drop(headers[i])   
-	
+		
 		
 #Write intermediate cleaned data to a CSV
 
-#data.write.csv("intermediate.csv")
+data.coalesce(1).write.option("header", "true").csv("intermediate.csv")
 
 
 
 #Data after 1st level cleaning
 
 for i in data.columns:
-	nullValues(i,cData)
+	nullValues(i,cData2)
 
-length=data.count()
-for i in range(0,len(cData)):
-	cData[i]=(cData[i]/length)*100
+for i in range(0,len(cData2)):
+	cData2[i]=(cData2[i]/length)*100
 
-cData
+cData2
 
 	
 # We create a SQL table
@@ -77,11 +79,12 @@ data=data.withColumn("Closed Date", when((col("Closed Date").isNull()) & (col("S
 data=data.withColumn("Resolution Action Updated Date", when((col("Resolution Action Updated Date").isNull()) & (col("Closed Date").isNotNull()),col("Closed Date")).otherwise(col("Resolution Action Updated Date")))
 
 
-#Remove all entries where closed date < created date and also remove all entries where Created Date > now()
+#Remove all entries where closed date < created date and created date > current date
 
 data.createOrReplaceTempView("temp")
-data=spark.sql("select * from temp where `Closed Date`>=`Created Date`")
-data=spark.sql("select * from temp where `Created Date`<=now()")
+data=spark.sql("select * from temp where `closed date`>=`created date`")
+data=spark.sql("select * from temp where `created date`<=now()")
+data.createOrReplaceTempView("temp")
 
 
 #We drop the following columns since it has redundant data
@@ -98,35 +101,36 @@ data=data.withColumn("Complaint Type", regexp_replace(data["Complaint Type"],"Hi
 data=data.withColumn("Complaint Type", regexp_replace(data["Complaint Type"],"Noise.*","Noise Complaint"))
 data=data.withColumn("Complaint Type", regexp_replace(data["Complaint Type"],"Taxi.*","Taxi Complaint"))
 
-
-
-#Replace unspecified data with null to help in validation
-
-data=data.withColumn("Borough", when((col("Borough")=="Unspecified"),None).otherwise(col("Borough")))
-boroughValidation(data)
-
-#update temporary table and remove all data not in the 5 boroughs
+data.withColumn("Descriptor", when((col("Descriptor")=="N/A"),"No description").otherwise(col("Descriptor")))
 
 data.createOrReplaceTempView("temp")
+
 data=spark.sql("SELECT * FROM temp WHERE BOROUGH IN ('QUEENS','BROOKLYN','BRONX','MANHATTAN','STATEN ISLAND')")
-data.createOrReplaceTempView("temp")
 
 
 
-cData2=[]
 
-#Calculate missing values for cleaned data
 
-for i in data.columns:
-	nullValues(i,cData2)
 
-length=data.count()
-for i in range(0,len(cData2)):
-	cData2[i]=(cData2[i]/length)*100	
 
-cData
-cData2
 
-data.printSchema()
-data.count()
-#data.write.csv('cleanData.csv')
+
+
+
+
+data.coalesce(1).write.option("header", "true").csv("cleanData.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
