@@ -118,7 +118,7 @@ data=spark.sql("SELECT * FROM temp WHERE BOROUGH IN ('QUEENS','BROOKLYN','BRONX'
 
 
 
-data.coalesce(1).write.option("header", "true").csv("cleanData.csv")
+#data.coalesce(1).write.option("header", "true").csv("cleanData.csv")
 
 
 
