@@ -4,7 +4,7 @@ from pyspark import SparkContext
 from pyspark.sql import SparkSession
 
 spark=SparkSession.builder.master("local").appName("BDA").getOrCreate()
-
+#
 #Loading data from CSV
 #data=spark.read.csv(sys.argv[1],header=True)
 
